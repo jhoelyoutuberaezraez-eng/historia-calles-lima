@@ -1,13 +1,72 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Historia de las Calles de Lima</title>
+<style>
+body{margin:0;font-family:Arial;background:#eef3f7;color:#17324d}
+header{background:#103c60;color:white;padding:25px 18px}
+h1{font-size:25px}
+main{padding:15px;max-width:700px;margin:auto}
+section{background:white;padding:18px;margin:15px 0;border-radius:12px}
+input{box-sizing:border-box;width:100%;padding:14px;font-size:17px;border:1px solid #aaa;border-radius:8px}
+button{background:#08718a;color:white;border:0;border-radius:8px;padding:13px;margin-top:12px;font-size:15px}
+article{padding:15px 0;border-bottom:1px solid #ddd}
+small{color:#8a5b00}
+</style>
 </head>
 <body>
+<header>
 <h1>Historia de las Calles de Lima</h1>
-<p>Bienvenido a nuestra aplicación.</p>
-<p>Próximamente: buscador de calles y GPS.</p>
+<p>Descubre el origen de los nombres de nuestras calles</p>
+</header>
+<main>
+<section>
+<h2>Buscar calles</h2>
+<input id="buscar" placeholder="Escribe el nombre de una calle">
+<button onclick="activarGPS()">📍 Activar GPS</button>
+<p id="gps">Ubicación todavía no activada.</p>
+</section>
+<section>
+<h2>Calles de Chorrillos</h2>
+<p>Información histórica preliminar, sujeta a verificación.</p>
+<div id="resultados"></div>
+</section>
+</main>
+<script>
+const calles=[
+["Avenida Defensores del Morro",
+"Anteriormente conocida como avenida Huaylas."],
+["Avenida José Olaya",
+"Se registra como denominación anterior calle del Tren. Falta verificar el tramo exacto."],
+["Calle Gerónimo Balarezo",
+"Se registra una denominación anterior: calle Bolognesi. Información pendiente de cotejo."],
+["Pasaje Cordillera Chila",
+"Denominación aprobada por Acuerdo de Concejo 0046-2025-MDCH."]
+];
+function mostrar(){
+let q=document.getElementById("buscar").value.toLowerCase();
+let lista=calles.filter(c=>c[0].toLowerCase().includes(q));
+document.getElementById("resultados").innerHTML=
+lista.map(c=>"<article><h3>"+c[0]+"</h3><p>"+c[1]+"</p><small>Información en revisión</small></article>").join("")||
+"<p>No se encontró esa calle en esta versión de prueba.</p>";
+}
+document.getElementById("buscar").addEventListener("input",mostrar);
+function activarGPS(){
+let estado=document.getElementById("gps");
+if(!navigator.geolocation){
+estado.textContent="GPS no disponible";
+return;
+}
+estado.textContent="Solicitando ubicación...";
+navigator.geolocation.getCurrentPosition(
+()=>estado.textContent="GPS activado. Próximamente mostraremos las calles cercanas.",
+()=>estado.textContent="No se pudo acceder a la ubicación. Revisa los permisos de Chrome."
+);
+}
+mostrar();
+</script>
 </body>
 </html>
