@@ -131,6 +131,16 @@ function mostrar(){
    a.rel="noopener noreferrer";
    a.textContent="Ver ubicación en el mapa";
    art.appendChild(a);
+   
+const ruta=document.createElement("a");
+ruta.href="https://www.google.com/maps/dir/?api=1&destination="+c.lat+","+c.lon+"&travelmode=driving";
+ruta.target="_blank";
+ruta.rel="noopener noreferrer";
+ruta.textContent="🚗 Cómo llegar";
+ruta.style.display="block";
+ruta.style.marginTop="12px";
+art.appendChild(ruta);
+
   }
   cont.appendChild(art);
  });
