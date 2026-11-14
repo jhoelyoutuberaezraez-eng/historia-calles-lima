@@ -3,19 +3,25 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Historia de las Calles de Lima</title>
 <style>
-body{margin:0;font-family:Arial;background:#eef3f7;color:#17324d}
-header{background:#103c60;color:white;padding:22px}
-h1{font-size:25px}
-main{padding:14px;max-width:700px;margin:auto}
-section{background:white;padding:18px;margin:14px 0;border-radius:12px}
-input{box-sizing:border-box;width:100%;padding:14px;font-size:16px;border:1px solid #aaa;border-radius:8px}
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#eef3f7;color:#17324d}
+header{background:#103c60;color:white;padding:22px;text-align:center}
+h1{font-size:25px;margin:0 0 8px}
+header p{margin:0;font-size:14px}
+main{max-width:750px;margin:auto;padding:14px}
+section{background:white;padding:16px;margin-bottom:14px;border-radius:12px}
+input{width:100%;padding:14px;font-size:16px;border:1px solid #aaa;border-radius:8px}
 button{background:#08718a;color:white;border:0;border-radius:8px;padding:13px;margin-top:12px;font-size:15px}
-article{padding:14px 0;border-bottom:1px solid #ddd}
-small{color:#806020}
+article{padding:15px 0;border-bottom:1px solid #ddd}
+article h3{margin:0 0 7px}
+article p{line-height:1.5}
+small{color:#596775}
 a{color:#08718a}
+.aviso{color:#9a5700;font-size:13px}
+#estado{font-size:14px}
 </style>
 </head>
 <body>
@@ -29,81 +35,141 @@ a{color:#08718a}
 <input id="buscar" placeholder="Escribe el nombre de una calle">
 <button onclick="activarGPS()">📍 Buscar calles cercanas</button>
 <p id="gps">GPS desactivado.</p>
+<p id="estado">Cargando calles...</p>
 </section>
 <section>
 <h2>Calles registradas</h2>
 <p id="cantidad"></p>
 <div id="resultados"></div>
+<button id="mas" onclick="verMas()" style="display:none">Ver más calles</button>
 </section>
 </main>
 <script>
-const calles=[
-{n:"10 de Noviembre",lat:-12.1884846,lon:-77.0063697,h:"Origen y fecha de denominación pendientes de verificación."},
-{n:"12 de Octubre",lat:-12.1987366,lon:-76.9949078,h:"Nombre asociado a una fecha histórica. No se ha verificado el motivo oficial de su asignación."},
-{n:"15 de Agosto",lat:-12.1878011,lon:-76.9787161,h:"Aún no se ha identificado documentalmente el acontecimiento conmemorado."},
-{n:"16 de Noviembre",lat:-12.1890674,lon:-77.0035693,h:"Origen de la denominación pendiente de investigación."},
-{n:"28 de Julio",lat:-12.1856558,lon:-77.0101433,h:"Fecha de la proclamación de la independencia del Perú. No se ha verificado el acuerdo municipal que dio nombre a esta vía."},
-{n:"6 de Enero",lat:-12.1894915,lon:-77.0038079,h:"Origen del nombre pendiente de verificación."},
-{n:"Avenida Defensores del Morro",lat:null,lon:null,h:"Anteriormente conocida como avenida Huaylas."},
-{n:"Avenida José Olaya",lat:null,lon:null,h:"Se registra como denominación anterior calle del Tren. Falta verificar el tramo exacto."},
-{n:"Pasaje Cordillera Chila",lat:null,lon:null,h:"Denominación aprobada por Acuerdo de Concejo 0046-2025-MDCH."}
-];
+const ID="1ZaYkAI1FU3JfdD9kraw6cZm7Crdvk_-4BPmZ4eqXPpQ";
+let calles=[];
 let usuario=null;
+let limite=30;
+const $=id=>document.getElementById(id);
+
+function numero(v){
+ const n=Number(v);
+ return Number.isFinite(n)?n:null;
+}
 function distancia(a,b,c,d){
-const r=Math.PI/180;
-const x=Math.sin((c-a)*r/2)**2+
-Math.cos(a*r)*Math.cos(c*r)*
-Math.sin((d-b)*r/2)**2;
-return 12742*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
+ const r=Math.PI/180;
+ const x=Math.sin((c-a)*r/2)**2+
+ Math.cos(a*r)*Math.cos(c*r)*
+ Math.sin((d-b)*r/2)**2;
+ return 12742*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
+}
+function texto(v){
+ return v==null?"":String(v);
+}
+function recibirCalles(res){
+ if(!res.table||!res.table.rows){
+  $("estado").textContent="No se pudieron cargar los datos.";
+  return;
+ }
+ calles=res.table.rows.map(f=>{
+  const c=f.c||[];
+  const v=i=>c[i]?(c[i].v??""):"";
+  return {
+   nombre:texto(v(3)),
+   tipo:texto(v(2)),
+   lat:numero(v(4)),
+   lon:numero(v(5)),
+   historia:texto(v(6)),
+   fecha:texto(v(7)),
+   verificacion:texto(v(9)),
+   publicable:texto(v(11))
+  };
+ }).filter(c=>c.nombre&&c.publicable==="BORRADOR_NO_OFICIAL");
+ $("estado").textContent=calles.length+" calles cargadas. Información preliminar.";
+ mostrar();
 }
 function mostrar(){
-let q=document.getElementById("buscar").value.toLowerCase();
-let datos=calles.filter(c=>c.n.toLowerCase().includes(q)).map(c=>({
-...c,
-km:usuario&&c.lat!==null?distancia(usuario.lat,usuario.lon,c.lat,c.lon):null
-}));
-if(usuario)datos.sort((a,b)=>(a.km??Infinity)-(b.km??Infinity));
-document.getElementById("cantidad").textContent=datos.length+" calles encontradas. Datos preliminares.";
-let cont=document.getElementById("resultados");
-cont.replaceChildren();
-for(let c of datos){
-let art=document.createElement("article");
-let titulo=document.createElement("h3");
-titulo.textContent=c.n;
-let historia=document.createElement("p");
-historia.textContent=c.h;
-let aviso=document.createElement("small");
-aviso.textContent=c.km===null?"Ubicación no disponible":(c.km<1?Math.round(c.km*1000)+" metros":c.km.toFixed(2)+" km")+" aproximadamente";
-art.append(titulo,historia,aviso);
-if(c.lat!==null){
-let p=document.createElement("p");
-let a=document.createElement("a");
-a.href="https://www.openstreetmap.org/?mlat="+c.lat+"&mlon="+c.lon+"#map=17/"+c.lat+"/"+c.lon;
-a.target="_blank";
-a.rel="noopener";
-a.textContent="Ver ubicación en el mapa";
-p.append(a);
-art.append(p);
+ const q=$("buscar").value.toLowerCase().trim();
+ let datos=calles.filter(c=>
+  (c.nombre+" "+c.tipo).toLowerCase().includes(q)
+ );
+ if(usuario){
+  datos=datos.map(c=>({
+   ...c,
+   km:c.lat!==null&&c.lon!==null?
+   distancia(usuario.lat,usuario.lon,c.lat,c.lon):null
+  }));
+  datos.sort((a,b)=>(a.km??Infinity)-(b.km??Infinity));
+ }
+ $("cantidad").textContent=datos.length+" calles encontradas";
+ const cont=$("resultados");
+ cont.replaceChildren();
+ datos.slice(0,limite).forEach(c=>{
+  const art=document.createElement("article");
+  const h=document.createElement("h3");
+  h.textContent=c.tipo+" "+c.nombre;
+  art.appendChild(h);
+  const p=document.createElement("p");
+  p.textContent=c.historia||"Historia pendiente de investigación.";
+  art.appendChild(p);
+  const fecha=document.createElement("small");
+  fecha.textContent=c.fecha;
+  art.appendChild(fecha);
+  const aviso=document.createElement("p");
+  aviso.className="aviso";
+  aviso.textContent="Estado: "+(c.verificacion||"Sin verificar");
+  art.appendChild(aviso);
+  if(c.km!==undefined&&c.km!==null){
+   const d=document.createElement("p");
+   d.textContent="📍 A "+c.km.toFixed(2)+" km aproximadamente";
+   art.appendChild(d);
+  }
+  if(c.lat!==null&&c.lon!==null){
+   const a=document.createElement("a");
+   a.href="https://www.openstreetmap.org/?mlat="+
+    c.lat+"&mlon="+c.lon+"#map=17/"+c.lat+"/"+c.lon;
+   a.target="_blank";
+   a.rel="noopener noreferrer";
+   a.textContent="Ver ubicación en el mapa";
+   art.appendChild(a);
+  }
+  cont.appendChild(art);
+ });
+ $("mas").style.display=datos.length>limite?"block":"none";
 }
-cont.append(art);
+function verMas(){
+ limite+=30;
+ mostrar();
 }
-if(!datos.length)cont.textContent="No se encontró la calle.";
-}
-document.getElementById("buscar").addEventListener("input",mostrar);
+$("buscar").addEventListener("input",()=>{
+ limite=30;
+ mostrar();
+});
 function activarGPS(){
-let e=document.getElementById("gps");
-e.textContent="Buscando ubicación...";
-navigator.geolocation.getCurrentPosition(
-p=>{
-usuario={lat:p.coords.latitude,lon:p.coords.longitude};
-e.textContent="GPS activado. Calles ordenadas por distancia.";
-mostrar();
-},
-()=>e.textContent="No se pudo obtener la ubicación. Revisa los permisos.",
-{enableHighAccuracy:true,timeout:15000}
-);
+ if(!navigator.geolocation){
+  $("gps").textContent="GPS no disponible.";
+  return;
+ }
+ $("gps").textContent="Obteniendo ubicación...";
+ navigator.geolocation.getCurrentPosition(
+  p=>{
+   usuario={lat:p.coords.latitude,lon:p.coords.longitude};
+   $("gps").textContent="GPS activado. Calles ordenadas por cercanía aproximada.";
+   limite=30;
+   mostrar();
+  },
+  ()=>{$("gps").textContent="No se pudo obtener tu ubicación."},
+  {enableHighAccuracy:true,timeout:15000}
+ );
 }
-mostrar();
+function errorCarga(){
+ $("estado").textContent="No se pudo cargar Google Sheets. Actualiza la página.";
+}
+const script=document.createElement("script");
+script.src="https://docs.google.com/spreadsheets/d/"+
+ ID+"/gviz/tq?gid=0&tqx="+
+ encodeURIComponent("out:json;responseHandler:recibirCalles");
+script.onerror=errorCarga;
+document.body.appendChild(script);
 </script>
 </body>
 </html>
