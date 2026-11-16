@@ -48,6 +48,12 @@ a{color:#08718a}
 </main>
 <script>
 const ID="1ZaYkAI1FU3JfdD9kraw6cZm7Crdvk_-4BPmZ4eqXPpQ";
+const HOJAS=[
+ {gid:"0",nombre:"Chorrillos"},
+ {gid:"18641114",nombre:"Villa El Salvador"},
+ {gid:"1282309593",nombre:"Cercado de Lima"}
+];
+const cargas=new Map();
 let calles=[];
 let usuario=null;
 let limite=30;
@@ -67,12 +73,12 @@ function distancia(a,b,c,d){
 function texto(v){
  return v==null?"":String(v);
 }
-function recibirCalles(res){
- if(!res.table||!res.table.rows){
-  $("estado").textContent="No se pudieron cargar los datos.";
+function recibirCalles(res,hoja){
+ if(!res||res.status==="error"||!res.table||!Array.isArray(res.table.rows)){
+  finalizarCarga(hoja,null);
   return;
  }
- calles=res.table.rows.map(f=>{
+ const datos=res.table.rows.map(f=>{
   const c=f.c||[];
   const v=i=>c[i]?(c[i].v??""):"";
   return {
@@ -86,7 +92,24 @@ function recibirCalles(res){
    publicable:texto(v(11))
   };
  }).filter(c=>c.nombre&&c.publicable==="BORRADOR_NO_OFICIAL");
- $("estado").textContent=calles.length+" calles cargadas. Información preliminar.";
+ finalizarCarga(hoja,datos);
+}
+function finalizarCarga(hoja,datos){
+ const carga=cargas.get(hoja.gid);
+ if(!carga||carga.terminada)return;
+ carga.terminada=true;
+ carga.datos=datos;
+ clearTimeout(carga.timer);
+ carga.script.remove();
+ calles=HOJAS.flatMap(h=>cargas.get(h.gid)?.datos||[]);
+ const pendientes=HOJAS.filter(h=>!cargas.get(h.gid)?.terminada);
+ const fallidas=HOJAS.filter(h=>{
+  const c=cargas.get(h.gid);
+  return c?.terminada&&c.datos===null;
+ });
+ $("estado").textContent=calles.length+" calles cargadas. Información preliminar."+
+  (pendientes.length?" Cargando "+pendientes.map(h=>h.nombre).join(", ")+"...":"")+
+  (fallidas.length?" No se pudo cargar: "+fallidas.map(h=>h.nombre).join(", ")+". Actualiza la página para reintentar.":"");
  mostrar();
 }
 function mostrar(){
@@ -173,15 +196,19 @@ function activarGPS(){
   {enableHighAccuracy:true,timeout:15000}
  );
 }
-function errorCarga(){
- $("estado").textContent="No se pudo cargar Google Sheets. Actualiza la página.";
-}
-const script=document.createElement("script");
-script.src="https://docs.google.com/spreadsheets/d/"+
- ID+"/gviz/tq?gid=0&tqx="+
- encodeURIComponent("out:json;responseHandler:recibirCalles");
-script.onerror=errorCarga;
-document.body.appendChild(script);
+HOJAS.forEach(hoja=>{
+ const callback="recibirCalles_"+hoja.gid;
+ const script=document.createElement("script");
+ const carga={terminada:false,datos:null,script,timer:null};
+ cargas.set(hoja.gid,carga);
+ window[callback]=res=>recibirCalles(res,hoja);
+ script.src="https://docs.google.com/spreadsheets/d/"+
+  ID+"/gviz/tq?gid="+hoja.gid+"&tqx="+
+  encodeURIComponent("out:json;responseHandler:"+callback);
+ script.onerror=()=>finalizarCarga(hoja,null);
+ carga.timer=setTimeout(()=>finalizarCarga(hoja,null),20000);
+ document.body.appendChild(script);
+});
 </script>
 <script>
 if ("serviceWorker" in navigator) {
